@@ -6,7 +6,7 @@ use strict;
 use testapi;
 use File::Basename qw(basename);
 
-our @EXPORT = qw(switch_to_x11 wait_for_desktop ensure_unlocked_desktop);
+our @EXPORT = qw(switch_to_x11 wait_for_desktop ensure_unlocked_desktop wait_for_container_log);
 
 sub switch_to_x11 {
     my @hdd = split(/-/, basename get_required_var('HDD_1'));
@@ -79,6 +79,26 @@ sub ensure_unlocked_desktop {
         wait_still_screen 2;                                                                              # slow down loop
         die 'ensure_unlocked_desktop repeated too much. Check for X-server crash.' if ($counter eq 1);    # die loop when generic-desktop not matched
     }
+}
+
+# Waits until a text ($text) is found in the container logs.
+# Controlled by a timeout (50s)
+# Params:
+# - $container: The container name or ID
+# - $text: The text to search in the logs
+# - $cmd: The containers runner (docker, podman,...)
+# - $timeout: Time in seconds until this fails
+#
+sub wait_for_container_log {
+    my ($container, $text, $cmd, $timeout) = @_;
+    $timeout //= 50;
+    while ($timeout > 0) {
+        my $output = script_output("$cmd logs $container 2>&1");
+        return if ($output =~ /$text/);
+        $timeout--;
+        sleep 1;
+    }
+    validate_script_output("$cmd logs $container 2>&1", qr/$text/);
 }
 
 1;
